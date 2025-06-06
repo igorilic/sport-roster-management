@@ -1,0 +1,214 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String               @id @default(cuid())
+  email              String               @unique
+  password           String
+  firstName          String?
+  lastName           String?
+  isEmailVerified    Boolean              @default(false)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  invitations        Invitation[]
+  ownedOrganizations Organization[]       @relation("OrganizationOwner")
+  positionMaintainer PositionMaintainer[]
+  teamMaintainer     TeamMaintainer[]
+}
+
+model Organization {
+  id           String       @id @default(cuid())
+  name         String
+  city         String
+  abbreviation String
+  logoUrl      String?
+  sport        Sport
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  ownerId      String
+  invitations  Invitation[]
+  owner        User         @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  teams        Team[]
+}
+
+model Team {
+  id             String              @id @default(cuid())
+  name           String
+  nickname       String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  organizationId String
+  defense        DefensePlayer[]
+  offense        OffensePlayer[]
+  players        Player[]
+  specialTeams   SpecialTeamPlayer[]
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  maintainers    TeamMaintainer[]
+}
+
+model TeamMaintainer {
+  id     String @id @default(cuid())
+  userId String
+  teamId String
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+}
+
+model Player {
+  id                String              @id @default(cuid())
+  number            String
+  firstName         String
+  lastName          String
+  dateOfBirth       DateTime?
+  experience        Int                 @default(0)
+  photoUrl          String?
+  primaryPosition   PositionType?
+  secondaryPosition PositionType?
+  depthChart        DepthChartPosition? @default(OTHER)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  teamId            String
+  defense           DefensePlayer?
+  offense           OffensePlayer?
+  team              Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  specialTeams      SpecialTeamPlayer[]
+}
+
+model OffensePlayer {
+  id             String       @id @default(cuid())
+  position       PositionType
+  customPosition String?
+  order          Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  playerId       String       @unique
+  teamId         String
+  player         Player       @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  team           Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+}
+
+model DefensePlayer {
+  id             String       @id @default(cuid())
+  position       PositionType
+  customPosition String?
+  order          Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  playerId       String       @unique
+  teamId         String
+  player         Player       @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  team           Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+}
+
+model SpecialTeamPlayer {
+  id             String          @id @default(cuid())
+  teamType       SpecialTeamType
+  customTeamType String?
+  position       String
+  order          Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  playerId       String
+  teamId         String
+  player         Player          @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  team           Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, teamType, position])
+}
+
+model PositionMaintainer {
+  id                  String           @id @default(cuid())
+  positionType        PositionType?
+  specialTeamType     SpecialTeamType?
+  specialTeamPosition String?
+  customPosition      String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  userId              String
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, positionType, specialTeamType, specialTeamPosition])
+}
+
+model Invitation {
+  id             String         @id @default(cuid())
+  email          String
+  role           InvitationRole
+  token          String         @unique
+  expires        DateTime
+  accepted       Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organizationId String
+  invitedById    String
+  invitedBy      User           @relation(fields: [invitedById], references: [id])
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model CustomPositionLabel {
+  id              String           @id @default(cuid())
+  name            String
+  type            CustomLabelType
+  specialTeamType SpecialTeamType?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  organizationId  String
+
+  @@unique([name, organizationId, type, specialTeamType])
+}
+
+enum Sport {
+  AMERICAN_FOOTBALL
+  BASKETBALL
+  VOLLEYBALL
+  WATERPOLO
+}
+
+enum PositionType {
+  QB
+  WR
+  TE
+  OL
+  HB
+  FB
+  DL
+  LB
+  DB
+  CUSTOM
+}
+
+enum DepthChartPosition {
+  FIRST
+  SECOND
+  THIRD
+  OTHER
+}
+
+enum SpecialTeamType {
+  FIELD_GOAL
+  PUNT
+  KICKOFF
+  KICKOFF_RETURN
+  FIELD_GOAL_BLOCK
+  PUNT_RETURN
+  CUSTOM
+}
+
+enum InvitationRole {
+  TEAM_MAINTAINER
+  POSITION_MAINTAINER
+}
+
+enum CustomLabelType {
+  OFFENSE
+  DEFENSE
+  SPECIAL_TEAM
+}
